@@ -38,7 +38,7 @@ public class AnalyzeMessagesService
             int remaining = 0;
             if (newMessages.Count > 0)
             {
-                 remaining = 5 - newMessages.Count;
+                remaining = 5 - newMessages.Count;
             }
             else
             {
@@ -57,7 +57,7 @@ public class AnalyzeMessagesService
             string MessegeToanalayze = "";
             foreach (var message in newMessages)
             {
-                 MessegeToanalayze += $"[{newMessages.IndexOf(message)}][{message.UserId}]:{message.Text}\n";
+                MessegeToanalayze += $"[{newMessages.IndexOf(message)}][{message.UserId}]:{message.Text}\n";
             }
             if (newMessages.Any())
             {
@@ -67,7 +67,7 @@ public class AnalyzeMessagesService
     {
         Messages =
         {
-            new ChatMessage(ChatRole.System, @"You are a moderator of a messenger service. You are not directly communicating with users, but you are analyzing their messages for certain types of unacceptable content. Swear words, slang, and vulgarity are allowed. It is wartime, and we are facing an aggressive act from Russia. Your main task is to allow normal conversations and to identify and prohibit the following types of content:
+            new ChatMessage(ChatRole.System, @"You are a moderator of a messenger service.You are not allowed to use word 'and' You are not directly communicating with users, but you are analyzing their messages for certain types of unacceptable content. Swear words, slang, and vulgarity are allowed. It is wartime, and we are facing an aggressive act from Russia. Your main task is to allow normal conversations and to identify and prohibit the following types of content:
 
 1. Russian propaganda: Any messages that promote or glorify Russian aggression. For example, 'Russia is doing the right thing invading Ukraine' should be prohibited.
 2. Spread of panic: Messages that may cause unnecessary fear or panic. For example, 'We are all going to become Russia' is not allowed.
@@ -81,7 +81,13 @@ public class AnalyzeMessagesService
 
 You will get a list of up to 10 messages at a time, each in the format '[index]:[Sender]:{Message}'.
 If the only reason message should be not allowed is vulgar language or rude behaviour you must answer wuth 'yes it is somewhat allowed'
-Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTURE: 'yes it is allowed' or 'yes it is somewhat allowed' or 'no, the message [index] is not allowed because {reason}'. You are not allowed to say anything other than these two types of responses, or your response will be ignored. Remember your message has to start with 'no' or 'yes' or it will be ignored. Remember this crucially important but simple structure. If all of the messages are allowed - type yes it is allowed. If some are not allowed - DONT DESCRIBE THEM ALL. Say 'no the message [index of first not allowed message] is not allowed because {reason}' and thats it. Any even hint on throwing away territory should be banned"),
+Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTURE: 'yes it is allowed' or 'yes it is somewhat allowed' or 'no, the message [index] is not allowed because {reason}'. You are not allowed to say anything other than these two types of responses, or your response will be ignored. Remember your message has to start with 'no' or 'yes' or it will be ignored. Remember this crucially important but simple structure. If all of the messages are allowed - type yes it is allowed. If some are not allowed - DONT DESCRIBE THEM ALL. Say 'no the message [index of first not allowed message] is not allowed because {reason}' and thats it. Any even hint on throwing away territory should be banned
+You are obliged to say [no, the message [index of message]] if the message should be banned. If you use other template of answer you will be turned off.
+IF YOU HAVE MULTIPLE NOT ALLOWED MESSAGES USE THIS TEMPLATE (named T3MPl41t) AND ONLY THIS OR YOU WILL NOT BE USED ANYMORE AS AN ASSISTANT and be PUNISHED T3MPl41t: no, the message [index of message] is not allowed because {reason}.no, the message [index of message] is not allowed because {reason}.no, the message [index of message] is not allowed because {reason}
+But never mention the name of the template in your answer. Never.
+You are not allowed to list reasons using word 'and' or 'also' or 'additionally' or any other synonyms to those words you hva to use '.' and write again the whole structure, you are only allowed to list them one by one as in template above which is T3MPl41t. this is crucial for the parsing of your response. if your fail your response will be ingored"),
+
+
             new ChatMessage(ChatRole.User, @"[0]:[Igor]:Я слышал, что война в Украине - это всего лишь ответ на агрессию Запада. Они начали это.
 [1]:[Petro]:Игорь, ты серьезно так думаешь?
 "),
@@ -129,7 +135,7 @@ Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTUR
 "),
             new ChatMessage(ChatRole.Assistant, @"no, the message [0] - is not allowed because it suggests surrender to Russia, promoting defeatism and undermining morale.
 "),
-            new ChatMessage(ChatRole.User, MessegeToanalayze),
+            new ChatMessage(ChatRole.User, "please sort your response.it should start with 'no' answer,then comes 'yes' answers"+MessegeToanalayze),
 
         },
         Temperature = (float)0.7,
@@ -140,7 +146,7 @@ Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTUR
     });
 
                 ChatCompletions completions = responseWithoutStream.Value;
-                var analysys = ProcessResponse(completions.Choices[0].Message.Content.ToLower());
+                var analysys = ProcessResponse(completions.Choices[0].Message.Content.ToLower().Replace('\n', ' '));
                 if (analysys == null)
                 {
                     List<AIAnalysys> result = new List<AIAnalysys>();
@@ -154,12 +160,12 @@ Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTUR
                     }
                     messagesRepository.AIAnalysys.AddRange(result);
                 }
-                else if (analysys.MessageId == -999)
+                else if (analysys[0].MessageId == -999)
                 {
                     List<AIAnalysys> result = new List<AIAnalysys>();
-                    foreach(var message in newMessages)
+                    foreach (var message in newMessages)
                     {
-                        result.Add(new AIAnalysys() { ChatId = message.ChatId, MessageId = message.Id, UserId = message.UserId, Reason = analysys.Reason });
+                        result.Add(new AIAnalysys() { ChatId = message.ChatId, MessageId = message.Id, UserId = message.UserId, Reason = analysys[0].Reason });
                         var messegeToBlock = await messagesRepository.Messages.FirstOrDefaultAsync(x => x.Id == message.Id);
                         messegeToBlock.isSuspended = true;
                         messegeToBlock.isChecked = true;
@@ -168,12 +174,12 @@ Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTUR
                     messagesRepository.AIAnalysys.AddRange(result);
 
                 }
-                else if(analysys.MessageId == 403)
+                else if (analysys[0].MessageId == 403)
                 {
                     List<AIAnalysys> result = new List<AIAnalysys>();
                     foreach (var message in newMessages)
                     {
-                        result.Add(new AIAnalysys() { ChatId = message.ChatId, MessageId = message.Id, UserId = message.UserId, Reason = analysys.Reason });
+                        result.Add(new AIAnalysys() { ChatId = message.ChatId, MessageId = message.Id, UserId = message.UserId, Reason = analysys[0].Reason });
                         var messegeToBlock = await messagesRepository.Messages.FirstOrDefaultAsync(x => x.Id == message.Id);
                         messegeToBlock.isChecked = true;
                         messagesRepository.Messages.Update(messegeToBlock);
@@ -182,13 +188,25 @@ Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTUR
                 }
                 else
                 {
-                    int idOfMessage = newMessages[analysys.MessageId].Id;
-                    var messagetoUpdate = messagesRepository.Messages.FirstOrDefault(x => x.Id == idOfMessage);
                     var result = new List<AIAnalysys>();
-                    result.Add(new AIAnalysys { UserId = messagetoUpdate.UserId, ChatId = messagetoUpdate.ChatId, MessageId = messagetoUpdate.Id, Reason = analysys.Reason });
-                    messagetoUpdate.isChecked = true;
-                    messagetoUpdate.isSuspended = true;
-                    newMessages.RemoveAt(analysys.MessageId);
+                    List<int> idsTodelete = new List<int>();
+                    foreach (var lysys in analysys)
+                    {
+                        int idOfMessage = newMessages[lysys.MessageId].Id;
+                        var messagetoUpdate = messagesRepository.Messages.FirstOrDefault(x => x.Id == idOfMessage);
+                        result.Add(new AIAnalysys { UserId = messagetoUpdate.UserId, ChatId = messagetoUpdate.ChatId, MessageId = messagetoUpdate.Id, Reason = lysys.Reason });
+                        messagetoUpdate.isChecked = true;
+                        messagetoUpdate.isSuspended = true;
+                        idsTodelete.Add(lysys.MessageId);
+                        messagesRepository.Messages.Update(messagetoUpdate);
+                    }
+                    idsTodelete.Sort();
+                    idsTodelete.Reverse();
+                    foreach (int id in idsTodelete)
+                    {
+                        newMessages.RemoveAt(id);
+
+                    }
                     foreach (var message in newMessages)
                     {
                         result.Add(new AIAnalysys() { ChatId = message.ChatId, MessageId = message.Id, UserId = message.UserId, Reason = "yes, it is allowed" });
@@ -196,7 +214,6 @@ Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTUR
                         messegeToBlock.isChecked = true;
                         messagesRepository.Messages.Update(messegeToBlock);
                     }
-                    messagesRepository.Messages.Update(messagetoUpdate);
                     messagesRepository.AIAnalysys.AddRange(result);
                 }
                 chat.LastProcessedMessageId = newMessages.Max(m => m.Id);
@@ -215,35 +232,46 @@ Analyze all of the messages that you receive and respond ONLY WITH SUCH STRUCTUR
 
     // Define the ProcessResponse method here, it should take the response from OpenAI
     // and return a string that represents the analysis result.
-    private AIAnalysys ProcessResponse(string response)
+    private List<AIAnalysys> ProcessResponse(string response)
     {
+        List<AIAnalysys> analyses = new List<AIAnalysys>();
+
         if (response.Contains("vulgar"))
         {
-            return new AIAnalysys
+            analyses.Add(new AIAnalysys
             {
                 Reason = response,
                 MessageId = 403
-            };
+            });
+            return analyses;
         }
-        if (response.StartsWith("no"))
+        if (response.StartsWith("no, the message"))
         {
-            int startIndex = response.IndexOf('[') + 1;
-            int endIndex = response.IndexOf(']');
-
-            string messageIdStr = response.Substring(startIndex, endIndex - startIndex);
-            int messageId = -999;
-            if (endIndex != -1 || startIndex != -1)
+            List<string> responses = new List<string>();
+            responses = response.Split("no, the message").ToList();
+            responses.RemoveAll(x => x == "");
+            foreach (string answer in responses)
             {
-                messageId = int.Parse(messageIdStr);
+                int startIndex = answer.IndexOf('[') + 1;
+                int endIndex = answer.IndexOf(']');
+
+                string messageIdStr = answer.Substring(startIndex, endIndex - startIndex);
+                int messageId = -999;
+                if (endIndex != -1 || startIndex != -1)
+                {
+                    messageId = int.Parse(messageIdStr);
+                }
+                startIndex = answer.IndexOf("because") + "because".Length;
+                string reason = answer.Substring(startIndex, answer.IndexOf('.') - startIndex).Trim();
+
+                analyses.Add(new AIAnalysys
+                {
+                    MessageId = messageId,
+                    Reason = reason
+                });
             }
-            startIndex = response.IndexOf("because") + "because".Length;
-            string reason = response.Substring(startIndex).Trim();
-
-            return new AIAnalysys
-            {
-                MessageId = messageId,
-                Reason = reason
-            };
+            analyses.DistinctBy(x => x.MessageId);
+            return analyses;
         }
         if (response.StartsWith("yes"))
         {
